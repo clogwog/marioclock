@@ -147,102 +147,95 @@ static void draw_clock(Canvas* canvas, int hour, int minute)
 }
 
 // ---------------------------------------------------------------------------
-// Mario sprite — 18 wide x 23 tall.  Three-frame walk cycle, extracted
-// directly from the source GIF (pinimg 66c9e8...) at native sprite res,
-// sampling each NES-equivalent pixel and aligning all frames to one bbox.
+// Mario sprite — 15 wide x 15 tall.  Four-frame walk cycle, extracted directly
+// from imagesrc/Layer 1-4.png via per-pixel nearest-palette classification
+// with alpha >= 240.
 //
 //   . transparent
 //   R red       (hat / shirt)
-//   F skin
-//   H dark brown (hair / hatband / shoes)
+//   F peach     (skin / face)
+//   H brown     (hair / shoes)
 //   B blue      (overalls)
-//   Y yellow    (buttons)
 //   K black     (eye / mustache)
-//   W white     (undershirt — visible when arms are at sides)
+//   W white     (highlight / undershirt)
 // ---------------------------------------------------------------------------
 
-#define MARIO_W 18
-#define MARIO_H 23
-#define MARIO_FRAMES 3
+#define MARIO_W 15
+#define MARIO_H 15
+#define MARIO_FRAMES 4
 
 static const char* MARIO[MARIO_FRAMES][MARIO_H] = {
-    // Frame 0 — arm swung back, leg stride
+    // Frame 0 — Layer 1
     {
-        "......RRRR........",
-        ".....RRRR.........",
-        "....RRRRRRRR......",
-        "....HHFFKFF.......",
-        "...HFFFFKFFFF.....",
-        "...HFFHFFFFFF.....",
-        "..HHFFFFKKKKK.....",
-        "..HHHFFFFKKKK.....",
-        "....HHFFFFFF......",
-        ".......RBRR.......",
-        "........RBR.......",
-        ".........BRR......",
-        "........RBBR......",
-        "....RRRRRBBB......",
-        "....BBBBBBYB......",
-        "....BBBBBBBBB..HH.",
-        ".HBBBBBBBBBBBBHHH.",
-        "HHBBBBBBBBBBBHHH..",
-        "HHBBBBBB.BBBBHHH..",
-        "HHBBBBB....BBHHH..",
-        ".HBBB........HH...",
-        ".HHH..............",
-        "..HH.............."
+        "...............",
+        "....RRRR.......",
+        "...RRRHRR......",
+        "...HHFWKF......",
+        "..FFHFFHHFW....",
+        "..HFHFFFKKH....",
+        "....WFFHHH.....",
+        "....HFHH.......",
+        "...RRBBR.......",
+        "..RRHBFHB......",
+        "..RRRBBBB......",
+        "..HRHWBBB......",
+        "...HHWBB.......",
+        "....BBHHH......",
+        "....HHH........"
     },
-    // Frame 1 — arms at sides, undershirt visible, legs together
+    // Frame 1 — Layer 2
     {
-        "......RRRR........",
-        ".....RRRR.........",
-        "....RRRRRRRR......",
-        "....HHFFKFF.......",
-        "...HFFFFKFFFF.....",
-        "...HFFHFFFFFF.....",
-        "..HHFFFFKKKKK.....",
-        "..HHHFFFFKKKK.....",
-        "....HHFFFFFF......",
-        ".....RWWWWR.......",
-        "....RRWWWWR.......",
-        "....RRWWWWRR......",
-        "....RRWWWBBR......",
-        "....BRRRRBBB......",
-        "....BBBBBBYB......",
-        "....BBBBBBBBB..HH.",
-        "..BBBBBBBBBBBBHHH.",
-        "..BBBBBBBBBBBHHH..",
-        ".HBBBBB...BBBHHH..",
-        ".HBBBBB....BBHH...",
-        ".HBBBB.......H....",
-        ".HHH..............",
-        "..HH.............."
+        ".....RRRR......",
+        "....RRRRRR.....",
+        "....HHFWKF.....",
+        "...FFHFFHHFW...",
+        "...HFHFFFKKH...",
+        ".....WWFHHH....",
+        "......HFBF.....",
+        "......RRBR.....",
+        ".....RRRHRFW...",
+        "...WFHRRRRFW...",
+        "...HHBBBBBB....",
+        "...HBBBBBBB....",
+        "..HHB...BB.....",
+        ".......HH......",
+        "........H......"
     },
-    // Frame 2 — arm coming forward, opposite stride
+    // Frame 2 — Layer 3 (matches Layer 1)
     {
-        "......RRRR........",
-        ".....RRRR.........",
-        "....RRRRRRRR......",
-        "....HHFFKFF.......",
-        "...HFFFFKFFFF.....",
-        "...HFFHFFFFFF.....",
-        "..HHFFFFKKKKK.....",
-        "..HHHFFFFKKKK.....",
-        "....HHWWWWFF......",
-        ".....RWWWWR.......",
-        "....RRWWWWR.......",
-        "....RRWWWRRR......",
-        "....RRRRBBBR......",
-        "....BRRRRBBB......",
-        "....BBBBBBYB......",
-        "....BBBBBBBBB..H..",
-        "...BBBBBBBBBBBHH..",
-        "..BBBBBBBBBBBHHH..",
-        ".HBBBBB...BBBHHH..",
-        ".HBBBBB....BBHH...",
-        "HHHBB........HH...",
-        "HHHH..............",
-        ".HH..............."
+        "...............",
+        "....RRRR.......",
+        "...RRRHRR......",
+        "...HHFWKF......",
+        "..FFHFFHHFW....",
+        "..HFHFFFKKH....",
+        "....WFFHHH.....",
+        "....HFHH.......",
+        "...RRBBR.......",
+        "..RRHBFHB......",
+        "..RRRBBBB......",
+        "..HRHWBBB......",
+        "...HHWBB.......",
+        "....BBHHH......",
+        "....HHH........"
+    },
+    // Frame 3 — Layer 4
+    {
+        ".....RRRR......",
+        "....RRRRRR.....",
+        "....HHFWKH.....",
+        "...FFHFFHHFW...",
+        "...HFHFFFKKH...",
+        ".....WFWHHH....",
+        ".....FFHHF.....",
+        "..RRRBBRRR.....",
+        "WW..RHBBHHBRHWW",
+        "WW..BBFFBBF....",
+        "....BBBBBBB....",
+        "...BBBBBBBBBHH.",
+        "..HBB.....BBHH.",
+        ".HH............",
+        "..HH..........."
     }
 };
 
@@ -251,13 +244,13 @@ static void mario_color(char c, uint8_t& r, uint8_t& g, uint8_t& b, bool& on)
     on = true;
     switch (c)
     {
-        case 'R': r = 252; g = 53;  b = 11;  break;  // red shirt/hat
-        case 'F': r = 252; g = 188; b = 100; break;  // skin
-        case 'H': r = 140; g = 86;  b = 13;  break;  // brown hair / shoes
-        case 'B': r = 4;   g = 90;  b = 188; break;  // blue overalls
+        case 'R': r = 255; g = 0;   b = 0;   break;  // red shirt/hat
+        case 'F': r = 255; g = 200; b = 190; break;  // peach skin
+        case 'H': r = 200; g = 90;  b = 0;   break;  // brown hair / shoes
+        case 'B': r = 0;   g = 30;  b = 255; break;  // blue overalls
         case 'Y': r = 252; g = 220; b = 60;  break;  // yellow button
         case 'K': r = 0;   g = 0;   b = 0;   break;  // black (eye/mustache)
-        case 'W': r = 230; g = 230; b = 230; break;  // white undershirt
+        case 'W': r = 255; g = 255; b = 255; break;  // white highlight
         default:  on = false; r = g = b = 0; break;
     }
 }
