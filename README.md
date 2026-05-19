@@ -1,12 +1,12 @@
 # marioclock
 
-A tiny HH:MM:SS clock with a walking Mario, drawn on a 32x32 RGB LED matrix
+A tiny HH:MM clock with a walking Mario, drawn on a 32x32 RGB LED matrix
 (Adafruit RGB Matrix HAT for the Raspberry Pi).
 
 Layout on the 32x32 panel:
 
 ```
-y =  1..5    HH:MM:SS  (3x5 pixel digits, coin-gold colour)
+y =  1..5    HH:MMS  (3x5 pixel digits, coin-gold colour)
 y = 16..31   12x16 Mario sprite, walking right, wrapping around
 ```
 

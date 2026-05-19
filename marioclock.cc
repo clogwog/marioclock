@@ -306,8 +306,7 @@ int main(int argc, char* argv[])
     const int mario_y = 32 - MARIO_H; // align Mario flush with bottom of panel
     int mario_x = -MARIO_W;          // start off-screen left
     int frame = 0;
-    int frame_counter = 0;           // controls walk-cycle speed
-    int step_counter = 0;            // controls horizontal speed
+    int frame_counter = 0;           // controls walk-cycle speed and step pace
 
     bool cont = true;
     while (cont)
@@ -326,22 +325,17 @@ int main(int argc, char* argv[])
         draw_clock(canvas, now->tm_hour, now->tm_min);
         draw_mario(canvas, mario_x, mario_y, frame);
 
-        // ~ every 50ms move mario 1px to the right
-        ++step_counter;
-        if (step_counter >= 2)
-        {
-            step_counter = 0;
-            mario_x++;
-            if (mario_x > 32)
-                mario_x = -MARIO_W;
-        }
-
-        // advance walk frame every ~150ms (3-frame cycle => ~450ms full step)
+        // advance walk frame every ~150ms and step 1px on the same beat,
+        // so each foot-plant frame coincides with the body moving 1px — keeps
+        // the feet from looking like they're sliding.
         ++frame_counter;
         if (frame_counter >= 6)
         {
             frame_counter = 0;
             frame = (frame + 1) % MARIO_FRAMES;
+            mario_x++;
+            if (mario_x > 32)
+                mario_x = -MARIO_W;
         }
 
         usleep(25000);
