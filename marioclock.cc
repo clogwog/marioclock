@@ -26,6 +26,23 @@ static void InterruptHandler(int signo)
 }
 
 // ---------------------------------------------------------------------------
+// Global LED brightness multiplier (0.0 = off, 1.0 = full).  Applied to every
+// pixel before it hits the panel.  Tweak DIM_FACTOR to taste.
+// ---------------------------------------------------------------------------
+
+static float DIM_FACTOR = 0.5f;
+
+static inline void put_pixel(Canvas* canvas, int x, int y,
+                             uint8_t r, uint8_t g, uint8_t b)
+{
+    if (x < 0 || x >= 32 || y < 0 || y >= 32) return;
+    uint8_t dr = (uint8_t)(r * DIM_FACTOR);
+    uint8_t dg = (uint8_t)(g * DIM_FACTOR);
+    uint8_t db = (uint8_t)(b * DIM_FACTOR);
+    canvas->SetPixel(x, y, dr, dg, db);
+}
+
+// ---------------------------------------------------------------------------
 // Tiny 3x5 digit font (plus 1-wide colon).  Designed to fit HH:MM:SS in 32px.
 // ---------------------------------------------------------------------------
 
@@ -100,7 +117,7 @@ static void draw_digit(Canvas* canvas, int x, int y, int d,
         for (int col = 0; col < 3; ++col)
         {
             if (line[col] == 'X')
-                canvas->SetPixel(x + col, y + row, r, g, b);
+                put_pixel(canvas, x + col, y + row, r, g, b);
         }
     }
 }
@@ -111,28 +128,31 @@ static void draw_colon(Canvas* canvas, int x, int y,
     for (int row = 0; row < 5; ++row)
     {
         if (COLON[row][0] == 'X')
-            canvas->SetPixel(x, y + row, r, g, b);
+            put_pixel(canvas, x, y + row, r, g, b);
     }
 }
 
-static void draw_clock(Canvas* canvas, int hour, int minute, int second)
+// HH:MM   3+1+3+1+1+1+3+1+3 = 17 px wide.  Centered in 32 px (x = 7).
+static void draw_clock(Canvas* canvas, int hour, int minute)
 {
     const uint8_t cr = 240, cg = 200, cb = 60;  // coin gold
-    int x = 2;
+    int x = 7;
     const int y = 1;
 
-    draw_digit(canvas, x, y, hour / 10, cr, cg, cb); x += 4;
-    draw_digit(canvas, x, y, hour % 10, cr, cg, cb); x += 4;
-    draw_colon(canvas, x, y, cr, cg, cb);            x += 2;
+    draw_digit(canvas, x, y, hour / 10,   cr, cg, cb); x += 4;
+    draw_digit(canvas, x, y, hour % 10,   cr, cg, cb); x += 4;
+    draw_colon(canvas, x, y,              cr, cg, cb); x += 2;
     draw_digit(canvas, x, y, minute / 10, cr, cg, cb); x += 4;
-    draw_digit(canvas, x, y, minute % 10, cr, cg, cb); x += 4;
-    draw_colon(canvas, x, y, cr, cg, cb);            x += 2;
-    draw_digit(canvas, x, y, second / 10, cr, cg, cb); x += 4;
-    draw_digit(canvas, x, y, second % 10, cr, cg, cb);
+    draw_digit(canvas, x, y, minute % 10, cr, cg, cb);
 }
 
 // ---------------------------------------------------------------------------
-// Small Mario sprite.  12 wide x 16 tall.  Two walking frames.
+// Small Mario sprite.  12 wide x 16 tall.  Four-frame walk cycle:
+//   0: hands low (hip)        legs together
+//   1: hands mid  (rising)    legs together
+//   2: hands high (shoulder)  legs spread (push-off)
+//   3: hands mid  (falling)   legs spread
+//
 //   . transparent
 //   R red       (hat / shirt)
 //   F skin
@@ -144,43 +164,85 @@ static void draw_clock(Canvas* canvas, int hour, int minute, int second)
 
 #define MARIO_W 12
 #define MARIO_H 16
+#define MARIO_FRAMES 4
 
-static const char* MARIO_FRAME_A[MARIO_H] = {
-    "....RRRR....",
-    "...RRRRRRR..",
-    "...HHHFFFK..",
-    "..HFHFFFFKK.",
-    "..HFHHFFFKK.",
-    "..HHFFFFKKK.",
-    "....FFFF....",
-    "...RRBRRR...",
-    "..RRRBBRRR..",
-    ".RRRBBBBRRR.",
-    ".FFBYBBYBFF.",
-    ".FFBBBBBBFF.",
-    "..FBBBBBBF..",
-    "...BB..BB...",
-    "...BB..BB...",
-    "..KKK..KKK.."
-};
-
-static const char* MARIO_FRAME_B[MARIO_H] = {
-    "....RRRR....",
-    "...RRRRRRR..",
-    "...HHHFFFK..",
-    "..HFHFFFFKK.",
-    "..HFHHFFFKK.",
-    "..HHFFFFKKK.",
-    "....FFFF....",
-    "...RRBRRR...",
-    "..RRRBBRRR..",
-    ".RRRBBBBRRR.",
-    ".FFBYBBYBFF.",
-    ".FFBBBBBBFF.",
-    "...BBBBBB...",
-    "...BBBBBB...",
-    "..KKK..KKK..",
-    ".KKK....KKK."
+static const char* MARIO[MARIO_FRAMES][MARIO_H] = {
+    // Frame 0 — arms down at hips, feet together
+    {
+        "....RRRR....",
+        "...RRRRRR...",
+        "...HHHFFF...",
+        "..HFHFFFF...",
+        "..HFHHFFF...",
+        "..HHFFFFF...",
+        "....FFFF....",
+        "...RRRRRR...",
+        "..RRBRRBRR..",
+        ".RRRBYYBRRR.",
+        ".FFBBYYBBFF.",
+        ".FFBBBBBBFF.",
+        "...BBBBBB...",
+        "...BB..BB...",
+        "...BB..BB...",
+        "..KKK..KKK.."
+    },
+    // Frame 1 — arms mid-swing (rising), feet together
+    {
+        "....RRRR....",
+        "...RRRRRR...",
+        "...HHHFFF...",
+        "..HFHFFFF...",
+        "..HFHHFFF...",
+        "..HHFFFFF...",
+        "....FFFF....",
+        "...RRRRRR...",
+        "..RRBRRBRR..",
+        ".FFRBYYBRFF.",
+        "..BBBYYBBB..",
+        "..BBBBBBBB..",
+        "...BBBBBB...",
+        "...BB..BB...",
+        "...BB..BB...",
+        "..KKK..KKK.."
+    },
+    // Frame 2 — arms raised to shoulder, legs spread (push-off)
+    {
+        "....RRRR....",
+        "...RRRRRR...",
+        "...HHHFFF...",
+        "..HFHFFFF...",
+        "..HFHHFFF...",
+        "..HHFFFFF...",
+        "....FFFF....",
+        "...RRRRRR...",
+        ".FFRBRRBRFF.",
+        ".RRRBYYBRRR.",
+        "..BBBYYBBB..",
+        "..BBBBBBBB..",
+        "...BBBBBB...",
+        "...BB..BB...",
+        "..KKK..KKK..",
+        ".KKKK..KKKK."
+    },
+    // Frame 3 — arms mid-swing (falling), legs still spread
+    {
+        "....RRRR....",
+        "...RRRRRR...",
+        "...HHHFFF...",
+        "..HFHFFFF...",
+        "..HFHHFFF...",
+        "..HHFFFFF...",
+        "....FFFF....",
+        "...RRRRRR...",
+        "..RRBRRBRR..",
+        ".FFRBYYBRFF.",
+        "..BBBYYBBB..",
+        "..BBBBBBBB..",
+        "...BBBBBB...",
+        "...BB..BB...",
+        "..KKK..KKK..",
+        ".KKKK..KKKK."
+    }
 };
 
 static void mario_color(char c, uint8_t& r, uint8_t& g, uint8_t& b, bool& on)
@@ -200,10 +262,10 @@ static void mario_color(char c, uint8_t& r, uint8_t& g, uint8_t& b, bool& on)
 
 static void draw_mario(Canvas* canvas, int x_offset, int y_offset, int frame)
 {
-    const char** sprite = (frame == 0) ? MARIO_FRAME_A : MARIO_FRAME_B;
+    if (frame < 0 || frame >= MARIO_FRAMES) frame = 0;
     for (int row = 0; row < MARIO_H; ++row)
     {
-        const char* line = sprite[row];
+        const char* line = MARIO[frame][row];
         for (int col = 0; col < MARIO_W; ++col)
         {
             int px = x_offset + col;
@@ -214,7 +276,7 @@ static void draw_mario(Canvas* canvas, int x_offset, int y_offset, int frame)
             bool on;
             mario_color(line[col], r, g, bl, on);
             if (on)
-                canvas->SetPixel(px, py, r, g, bl);
+                put_pixel(canvas, px, py, r, g, bl);
         }
     }
 }
@@ -266,7 +328,7 @@ int main(int argc, char* argv[])
 
         canvas->Clear();
 
-        draw_clock(canvas, now->tm_hour, now->tm_min, now->tm_sec);
+        draw_clock(canvas, now->tm_hour, now->tm_min);
         draw_mario(canvas, mario_x, mario_y, frame);
 
         // ~ every 50ms move mario 1px to the right
@@ -279,12 +341,12 @@ int main(int argc, char* argv[])
                 mario_x = -MARIO_W;
         }
 
-        // toggle walk frame every ~150ms
+        // advance walk frame every ~100ms (4-frame cycle => ~400ms full step)
         ++frame_counter;
-        if (frame_counter >= 6)
+        if (frame_counter >= 4)
         {
             frame_counter = 0;
-            frame = 1 - frame;
+            frame = (frame + 1) % MARIO_FRAMES;
         }
 
         usleep(25000);
