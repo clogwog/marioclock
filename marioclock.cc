@@ -462,11 +462,11 @@ int main(int argc, char* argv[])
         }
         else if (state == BUMP_UP)
         {
+            // pose frozen — don't cycle walk frames mid-air
             ++bump_counter;
-            if (bump_counter >= 3)        // ~75ms per pixel — snappy jump
+            if (bump_counter >= 2)        // ~50ms per pixel
             {
                 bump_counter = 0;
-                frame = (frame + 1) % MARIO_FRAMES;
                 mario_y--;
                 if (mario_y <= MARIO_BUMP_Y)
                 {
@@ -479,10 +479,9 @@ int main(int argc, char* argv[])
         else if (state == BUMP_DOWN)
         {
             ++bump_counter;
-            if (bump_counter >= 3)
+            if (bump_counter >= 2)
             {
                 bump_counter = 0;
-                frame = (frame + 1) % MARIO_FRAMES;
                 mario_y++;
                 if (mario_y >= MARIO_GROUND_Y)
                 {
