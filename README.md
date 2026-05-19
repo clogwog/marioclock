@@ -3,7 +3,7 @@
 An `HH:MM` clock with a walking Mario, drawn on a 32x32 RGB LED matrix
 (Adafruit RGB Matrix HAT for a Raspberry Pi).
 
-![mario bumping the minute digits](./mario-change-of-time.gif)
+![mario bumping the minute digits](imagesrc/mario-change-of-minute.gif)
 
 ## What it does
 
