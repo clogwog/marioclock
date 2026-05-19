@@ -147,101 +147,102 @@ static void draw_clock(Canvas* canvas, int hour, int minute)
 }
 
 // ---------------------------------------------------------------------------
-// Small Mario sprite.  12 wide x 16 tall.  Four-frame walk cycle:
-//   0: hands low (hip)        legs together
-//   1: hands mid  (rising)    legs together
-//   2: hands high (shoulder)  legs spread (push-off)
-//   3: hands mid  (falling)   legs spread
+// Mario sprite — 18 wide x 23 tall.  Three-frame walk cycle, extracted
+// directly from the source GIF (pinimg 66c9e8...) at native sprite res,
+// sampling each NES-equivalent pixel and aligning all frames to one bbox.
 //
 //   . transparent
 //   R red       (hat / shirt)
 //   F skin
-//   H dark brown (hair / hatband)
+//   H dark brown (hair / hatband / shoes)
 //   B blue      (overalls)
 //   Y yellow    (buttons)
-//   K black     (shoes / outline)
+//   K black     (eye / mustache)
+//   W white     (undershirt — visible when arms are at sides)
 // ---------------------------------------------------------------------------
 
-#define MARIO_W 12
-#define MARIO_H 16
-#define MARIO_FRAMES 4
+#define MARIO_W 18
+#define MARIO_H 23
+#define MARIO_FRAMES 3
 
 static const char* MARIO[MARIO_FRAMES][MARIO_H] = {
-    // Frame 0 — arms down at hips, feet together
+    // Frame 0 — arm swung back, leg stride
     {
-        "....RRRR....",
-        "...RRRRRR...",
-        "...HHHFFF...",
-        "..HFHFFFF...",
-        "..HFHHFFF...",
-        "..HHFFFFF...",
-        "....FFFF....",
-        "...RRRRRR...",
-        "..RRBRRBRR..",
-        ".RRRBYYBRRR.",
-        ".FFBBYYBBFF.",
-        ".FFBBBBBBFF.",
-        "...BBBBBB...",
-        "...BB..BB...",
-        "...BB..BB...",
-        "..KKK..KKK.."
+        "......RRRR........",
+        ".....RRRR.........",
+        "....RRRRRRRR......",
+        "....HHFFKFF.......",
+        "...HFFFFKFFFF.....",
+        "...HFFHFFFFFF.....",
+        "..HHFFFFKKKKK.....",
+        "..HHHFFFFKKKK.....",
+        "....HHFFFFFF......",
+        ".......RBRR.......",
+        "........RBR.......",
+        ".........BRR......",
+        "........RBBR......",
+        "....RRRRRBBB......",
+        "....BBBBBBYB......",
+        "....BBBBBBBBB..HH.",
+        ".HBBBBBBBBBBBBHHH.",
+        "HHBBBBBBBBBBBHHH..",
+        "HHBBBBBB.BBBBHHH..",
+        "HHBBBBB....BBHHH..",
+        ".HBBB........HH...",
+        ".HHH..............",
+        "..HH.............."
     },
-    // Frame 1 — arms mid-swing (rising), feet together
+    // Frame 1 — arms at sides, undershirt visible, legs together
     {
-        "....RRRR....",
-        "...RRRRRR...",
-        "...HHHFFF...",
-        "..HFHFFFF...",
-        "..HFHHFFF...",
-        "..HHFFFFF...",
-        "....FFFF....",
-        "...RRRRRR...",
-        "..RRBRRBRR..",
-        ".FFRBYYBRFF.",
-        "..BBBYYBBB..",
-        "..BBBBBBBB..",
-        "...BBBBBB...",
-        "...BB..BB...",
-        "...BB..BB...",
-        "..KKK..KKK.."
+        "......RRRR........",
+        ".....RRRR.........",
+        "....RRRRRRRR......",
+        "....HHFFKFF.......",
+        "...HFFFFKFFFF.....",
+        "...HFFHFFFFFF.....",
+        "..HHFFFFKKKKK.....",
+        "..HHHFFFFKKKK.....",
+        "....HHFFFFFF......",
+        ".....RWWWWR.......",
+        "....RRWWWWR.......",
+        "....RRWWWWRR......",
+        "....RRWWWBBR......",
+        "....BRRRRBBB......",
+        "....BBBBBBYB......",
+        "....BBBBBBBBB..HH.",
+        "..BBBBBBBBBBBBHHH.",
+        "..BBBBBBBBBBBHHH..",
+        ".HBBBBB...BBBHHH..",
+        ".HBBBBB....BBHH...",
+        ".HBBBB.......H....",
+        ".HHH..............",
+        "..HH.............."
     },
-    // Frame 2 — arms raised to shoulder, legs spread (push-off)
+    // Frame 2 — arm coming forward, opposite stride
     {
-        "....RRRR....",
-        "...RRRRRR...",
-        "...HHHFFF...",
-        "..HFHFFFF...",
-        "..HFHHFFF...",
-        "..HHFFFFF...",
-        "....FFFF....",
-        "...RRRRRR...",
-        ".FFRBRRBRFF.",
-        ".RRRBYYBRRR.",
-        "..BBBYYBBB..",
-        "..BBBBBBBB..",
-        "...BBBBBB...",
-        "...BB..BB...",
-        "..KKK..KKK..",
-        ".KKKK..KKKK."
-    },
-    // Frame 3 — arms mid-swing (falling), legs still spread
-    {
-        "....RRRR....",
-        "...RRRRRR...",
-        "...HHHFFF...",
-        "..HFHFFFF...",
-        "..HFHHFFF...",
-        "..HHFFFFF...",
-        "....FFFF....",
-        "...RRRRRR...",
-        "..RRBRRBRR..",
-        ".FFRBYYBRFF.",
-        "..BBBYYBBB..",
-        "..BBBBBBBB..",
-        "...BBBBBB...",
-        "...BB..BB...",
-        "..KKK..KKK..",
-        ".KKKK..KKKK."
+        "......RRRR........",
+        ".....RRRR.........",
+        "....RRRRRRRR......",
+        "....HHFFKFF.......",
+        "...HFFFFKFFFF.....",
+        "...HFFHFFFFFF.....",
+        "..HHFFFFKKKKK.....",
+        "..HHHFFFFKKKK.....",
+        "....HHWWWWFF......",
+        ".....RWWWWR.......",
+        "....RRWWWWR.......",
+        "....RRWWWRRR......",
+        "....RRRRBBBR......",
+        "....BRRRRBBB......",
+        "....BBBBBBYB......",
+        "....BBBBBBBBB..H..",
+        "...BBBBBBBBBBBHH..",
+        "..BBBBBBBBBBBHHH..",
+        ".HBBBBB...BBBHHH..",
+        ".HBBBBB....BBHH...",
+        "HHHBB........HH...",
+        "HHHH..............",
+        ".HH..............."
     }
 };
 
@@ -250,12 +251,13 @@ static void mario_color(char c, uint8_t& r, uint8_t& g, uint8_t& b, bool& on)
     on = true;
     switch (c)
     {
-        case 'R': r = 220; g = 40;  b = 40;  break;
-        case 'F': r = 252; g = 188; b = 140; break;
-        case 'H': r = 110; g = 60;  b = 20;  break;
-        case 'B': r = 60;  g = 100; b = 220; break;
-        case 'Y': r = 240; g = 200; b = 60;  break;
-        case 'K': r = 30;  g = 15;  b = 5;   break;
+        case 'R': r = 252; g = 53;  b = 11;  break;  // red shirt/hat
+        case 'F': r = 252; g = 188; b = 100; break;  // skin
+        case 'H': r = 140; g = 86;  b = 13;  break;  // brown hair / shoes
+        case 'B': r = 4;   g = 90;  b = 188; break;  // blue overalls
+        case 'Y': r = 252; g = 220; b = 60;  break;  // yellow button
+        case 'K': r = 0;   g = 0;   b = 0;   break;  // black (eye/mustache)
+        case 'W': r = 230; g = 230; b = 230; break;  // white undershirt
         default:  on = false; r = g = b = 0; break;
     }
 }
@@ -308,7 +310,7 @@ int main(int argc, char* argv[])
     signal(SIGINT, InterruptHandler);
 
     time_t startTime = time(0);
-    const int mario_y = 16;          // top of mario in 32-row display
+    const int mario_y = 32 - MARIO_H; // align Mario flush with bottom of panel
     int mario_x = -MARIO_W;          // start off-screen left
     int frame = 0;
     int frame_counter = 0;           // controls walk-cycle speed
@@ -341,9 +343,9 @@ int main(int argc, char* argv[])
                 mario_x = -MARIO_W;
         }
 
-        // advance walk frame every ~100ms (4-frame cycle => ~400ms full step)
+        // advance walk frame every ~150ms (3-frame cycle => ~450ms full step)
         ++frame_counter;
-        if (frame_counter >= 4)
+        if (frame_counter >= 6)
         {
             frame_counter = 0;
             frame = (frame + 1) % MARIO_FRAMES;
