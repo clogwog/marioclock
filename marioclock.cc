@@ -255,7 +255,8 @@ static void mario_color(char c, uint8_t& r, uint8_t& g, uint8_t& b, bool& on)
     }
 }
 
-static void draw_mario(Canvas* canvas, int x_offset, int y_offset, int frame)
+static void draw_mario(Canvas* canvas, int x_offset, int y_offset, int frame,
+                       bool flip_x)
 {
     if (frame < 0 || frame >= MARIO_FRAMES) frame = 0;
     for (int row = 0; row < MARIO_H; ++row)
@@ -263,13 +264,14 @@ static void draw_mario(Canvas* canvas, int x_offset, int y_offset, int frame)
         const char* line = MARIO[frame][row];
         for (int col = 0; col < MARIO_W; ++col)
         {
+            int src_col = flip_x ? (MARIO_W - 1 - col) : col;
             int px = x_offset + col;
             int py = y_offset + row;
             if (px < 0 || px >= 32 || py < 0 || py >= 32) continue;
 
             uint8_t r, g, bl;
             bool on;
-            mario_color(line[col], r, g, bl, on);
+            mario_color(line[src_col], r, g, bl, on);
             if (on)
                 put_pixel(canvas, px, py, r, g, bl);
         }
@@ -302,11 +304,21 @@ int main(int argc, char* argv[])
     signal(SIGTERM, InterruptHandler);
     signal(SIGINT, InterruptHandler);
 
+    srand((unsigned int)time(NULL));
+
     time_t startTime = time(0);
     const int mario_y = 32 - MARIO_H; // align Mario flush with bottom of panel
+
+    // Simple state machine: walk across, wait off-screen, turn, walk back, wait...
+    enum MarioState { WALK_RIGHT, WAIT_RIGHT, WALK_LEFT, WAIT_LEFT };
+    MarioState state = WALK_RIGHT;
     int mario_x = -MARIO_W;          // start off-screen left
+    bool flip = false;               // true while walking right→left
     int frame = 0;
     int frame_counter = 0;           // controls walk-cycle speed and step pace
+    int wait_ticks = 0;              // 25ms ticks remaining in the current wait
+
+    auto pick_wait = []() { return (2 + (rand() % 4)) * 40; };  // 2..5 s × 40 ticks/s
 
     bool cont = true;
     while (cont)
@@ -321,21 +333,52 @@ int main(int argc, char* argv[])
         }
 
         canvas->Clear();
-
         draw_clock(canvas, now->tm_hour, now->tm_min);
-        draw_mario(canvas, mario_x, mario_y, frame);
 
-        // advance walk frame every ~150ms and step 1px on the same beat,
-        // so each foot-plant frame coincides with the body moving 1px — keeps
-        // the feet from looking like they're sliding.
-        ++frame_counter;
-        if (frame_counter >= 6)
+        if (state == WALK_RIGHT || state == WALK_LEFT)
         {
-            frame_counter = 0;
-            frame = (frame + 1) % MARIO_FRAMES;
-            mario_x++;
-            if (mario_x > 32)
-                mario_x = -MARIO_W;
+            draw_mario(canvas, mario_x, mario_y, frame, flip);
+
+            // advance walk frame and step 1px on the same beat
+            ++frame_counter;
+            if (frame_counter >= 6)
+            {
+                frame_counter = 0;
+                frame = (frame + 1) % MARIO_FRAMES;
+                mario_x += (state == WALK_RIGHT) ? 1 : -1;
+
+                if (state == WALK_RIGHT && mario_x > 32)
+                {
+                    state = WAIT_RIGHT;
+                    wait_ticks = pick_wait();
+                }
+                else if (state == WALK_LEFT && mario_x < -MARIO_W)
+                {
+                    state = WAIT_LEFT;
+                    wait_ticks = pick_wait();
+                }
+            }
+        }
+        else
+        {
+            // off-screen wait
+            if (--wait_ticks <= 0)
+            {
+                if (state == WAIT_RIGHT)
+                {
+                    state = WALK_LEFT;
+                    flip = true;
+                    mario_x = 32;        // just off the right edge, will walk left
+                }
+                else
+                {
+                    state = WALK_RIGHT;
+                    flip = false;
+                    mario_x = -MARIO_W;  // just off the left edge, will walk right
+                }
+                frame = 0;
+                frame_counter = 0;
+            }
         }
 
         usleep(25000);
