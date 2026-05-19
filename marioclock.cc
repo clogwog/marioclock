@@ -133,17 +133,22 @@ static void draw_colon(Canvas* canvas, int x, int y,
 }
 
 // HH:MM   3+1+3+1+1+1+3+1+3 = 17 px wide.  Centered in 32 px (x = 7).
-static void draw_clock(Canvas* canvas, int hour, int minute)
+// hour digits + colon are drawn at hour_y; minute digits at minute_y so the
+// minute pair can be flown up / dropped back independently of the hours.
+// minute < 0 = don't draw minute digits at all (they're "between" old & new).
+static void draw_clock(Canvas* canvas, int hour, int minute,
+                       int hour_y, int minute_y)
 {
     const uint8_t cr = 240, cg = 200, cb = 60;  // coin gold
     int x = 7;
-    const int y = 1;
-
-    draw_digit(canvas, x, y, hour / 10,   cr, cg, cb); x += 4;
-    draw_digit(canvas, x, y, hour % 10,   cr, cg, cb); x += 4;
-    draw_colon(canvas, x, y,              cr, cg, cb); x += 2;
-    draw_digit(canvas, x, y, minute / 10, cr, cg, cb); x += 4;
-    draw_digit(canvas, x, y, minute % 10, cr, cg, cb);
+    draw_digit(canvas, x, hour_y, hour / 10, cr, cg, cb); x += 4;
+    draw_digit(canvas, x, hour_y, hour % 10, cr, cg, cb); x += 4;
+    draw_colon(canvas, x, hour_y,            cr, cg, cb); x += 2;
+    if (minute >= 0)
+    {
+        draw_digit(canvas, x, minute_y, minute / 10, cr, cg, cb); x += 4;
+        draw_digit(canvas, x, minute_y, minute % 10, cr, cg, cb);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -307,24 +312,46 @@ int main(int argc, char* argv[])
     srand((unsigned int)time(NULL));
 
     time_t startTime = time(0);
-    const int mario_y = 32 - MARIO_H; // align Mario flush with bottom of panel
+    const int MARIO_GROUND_Y = 32 - MARIO_H; // 17, feet flush with bottom row
+    const int MARIO_BUMP_Y  = 6;             // top of mario just below digits
+    const int CLOCK_Y       = 1;             // normal y of HH:MM
+    const int CLOCK_GONE_Y  = -5;            // digit-top fully off panel above
+    const int BUMP_TARGET_X = 13;            // mario_x when centred under MM
 
-    // Simple state machine: walk across, wait off-screen, turn, walk back, wait...
-    enum MarioState { WALK_RIGHT, WAIT_RIGHT, WALK_LEFT, WAIT_LEFT };
+    // ---- mario state ----
+    enum MarioState { WALK_RIGHT, WAIT_RIGHT, WALK_LEFT, WAIT_LEFT,
+                      BUMP_UP, BUMP_DOWN };
     MarioState state = WALK_RIGHT;
-    int mario_x = -MARIO_W;          // start off-screen left
-    bool flip = false;               // true while walking right→left
+    MarioState pre_bump_state = WALK_RIGHT;  // direction to resume after bump
+    int mario_x = -MARIO_W;
+    int mario_y = MARIO_GROUND_Y;
+    bool flip = false;
     int frame = 0;
-    int frame_counter = 0;           // controls walk-cycle speed and step pace
-    int wait_ticks = 0;              // 25ms ticks remaining in the current wait
+    int frame_counter = 0;      // 25ms ticks; 1 walk step every 6 ticks (150ms)
+    int bump_counter  = 0;      // faster beat for the jump itself (3 ticks)
+    int wait_ticks    = 0;
 
-    auto pick_wait = []() { return (2 + (rand() % 4)) * 40; };  // 2..5 s × 40 ticks/s
+    // ---- minute digit state ----
+    enum MinuteState { MIN_NORMAL, MIN_FLY_UP, MIN_HIDDEN, MIN_FALL };
+    MinuteState min_state = MIN_NORMAL;
+    int minute_y = CLOCK_Y;
+    int hidden_ticks = 0;
+    time_t t = time(0);
+    struct tm* now = localtime(&t);
+    int displayed_minute = now->tm_min;
+    int displayed_hour   = now->tm_hour;
+    int pending_minute   = displayed_minute;
+    int pending_hour     = displayed_hour;
+    bool bump_pending    = false;
+
+    auto pick_wait = []() { return (2 + (rand() % 4)) * 40; };   // 2..5 s
+    const int HIDDEN_PAUSE_TICKS = 30;                            // ~0.75s
 
     bool cont = true;
     while (cont)
     {
-        time_t t = time(0);
-        struct tm* now = localtime(&t);
+        t = time(0);
+        now = localtime(&t);
 
         if (maxtime > 0 && difftime(t, startTime) > maxtime)
         {
@@ -332,14 +359,59 @@ int main(int argc, char* argv[])
             printf("stopping now\n");
         }
 
-        canvas->Clear();
-        draw_clock(canvas, now->tm_hour, now->tm_min);
+        // ---- detect minute change ----
+        if (!bump_pending &&
+            (now->tm_min != displayed_minute || now->tm_hour != displayed_hour))
+        {
+            bump_pending  = true;
+            pending_minute = now->tm_min;
+            pending_hour   = now->tm_hour;
+        }
 
+        // ---- minute digit animation (independent of mario except for trigger) ----
+        switch (min_state)
+        {
+        case MIN_NORMAL:
+            minute_y = CLOCK_Y;
+            break;
+        case MIN_FLY_UP:
+            // tied to bump_counter so it matches mario's fall speed below
+            if (bump_counter == 0)
+            {
+                if (minute_y > CLOCK_GONE_Y) minute_y--;
+                if (minute_y <= CLOCK_GONE_Y)
+                {
+                    // digits are off-screen; swap to new value while hidden
+                    displayed_minute = pending_minute;
+                    displayed_hour   = pending_hour;
+                    min_state = MIN_HIDDEN;
+                    hidden_ticks = HIDDEN_PAUSE_TICKS;
+                }
+            }
+            break;
+        case MIN_HIDDEN:
+            if (--hidden_ticks <= 0)
+            {
+                min_state = MIN_FALL;
+            }
+            break;
+        case MIN_FALL:
+            if (bump_counter == 0)
+            {
+                if (minute_y < CLOCK_Y) minute_y++;
+                if (minute_y >= CLOCK_Y)
+                {
+                    minute_y = CLOCK_Y;
+                    min_state = MIN_NORMAL;
+                    bump_pending = false;
+                }
+            }
+            break;
+        }
+
+        // ---- mario state machine ----
         if (state == WALK_RIGHT || state == WALK_LEFT)
         {
-            draw_mario(canvas, mario_x, mario_y, frame, flip);
-
-            // advance walk frame and step 1px on the same beat
             ++frame_counter;
             if (frame_counter >= 6)
             {
@@ -347,7 +419,16 @@ int main(int argc, char* argv[])
                 frame = (frame + 1) % MARIO_FRAMES;
                 mario_x += (state == WALK_RIGHT) ? 1 : -1;
 
-                if (state == WALK_RIGHT && mario_x > 32)
+                // detect bump trigger: walking under the minute digits
+                if (bump_pending && min_state == MIN_NORMAL &&
+                    mario_x == BUMP_TARGET_X)
+                {
+                    pre_bump_state = state;
+                    state = BUMP_UP;
+                    mario_y = MARIO_GROUND_Y;
+                    bump_counter = 0;
+                }
+                else if (state == WALK_RIGHT && mario_x > 32)
                 {
                     state = WAIT_RIGHT;
                     wait_ticks = pick_wait();
@@ -359,26 +440,68 @@ int main(int argc, char* argv[])
                 }
             }
         }
-        else
+        else if (state == WAIT_RIGHT || state == WAIT_LEFT)
         {
-            // off-screen wait
             if (--wait_ticks <= 0)
             {
                 if (state == WAIT_RIGHT)
                 {
                     state = WALK_LEFT;
                     flip = true;
-                    mario_x = 32;        // just off the right edge, will walk left
+                    mario_x = 32;
                 }
                 else
                 {
                     state = WALK_RIGHT;
                     flip = false;
-                    mario_x = -MARIO_W;  // just off the left edge, will walk right
+                    mario_x = -MARIO_W;
                 }
                 frame = 0;
                 frame_counter = 0;
             }
+        }
+        else if (state == BUMP_UP)
+        {
+            ++bump_counter;
+            if (bump_counter >= 3)        // ~75ms per pixel — snappy jump
+            {
+                bump_counter = 0;
+                frame = (frame + 1) % MARIO_FRAMES;
+                mario_y--;
+                if (mario_y <= MARIO_BUMP_Y)
+                {
+                    mario_y = MARIO_BUMP_Y;
+                    state = BUMP_DOWN;
+                    min_state = MIN_FLY_UP;   // hit! digits start flying up now
+                }
+            }
+        }
+        else if (state == BUMP_DOWN)
+        {
+            ++bump_counter;
+            if (bump_counter >= 3)
+            {
+                bump_counter = 0;
+                frame = (frame + 1) % MARIO_FRAMES;
+                mario_y++;
+                if (mario_y >= MARIO_GROUND_Y)
+                {
+                    mario_y = MARIO_GROUND_Y;
+                    state = pre_bump_state;   // resume original walking direction
+                    frame_counter = 0;
+                }
+            }
+        }
+
+        // ---- draw ----
+        canvas->Clear();
+        int draw_minute = (min_state == MIN_HIDDEN) ? -1 : displayed_minute;
+        draw_clock(canvas, displayed_hour, draw_minute, CLOCK_Y, minute_y);
+
+        if (state == WALK_RIGHT || state == WALK_LEFT ||
+            state == BUMP_UP    || state == BUMP_DOWN)
+        {
+            draw_mario(canvas, mario_x, mario_y, frame, flip);
         }
 
         usleep(25000);
